@@ -1,0 +1,17 @@
+services:
+  api:
+    build:
+      context: .
+    container_name: taskflow_api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - taskflow_data:/app/data
+      - taskflow_uploads:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  taskflow_data:
+  taskflow_uploads:
