@@ -55,8 +55,13 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> TokenPair
     if token_data.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-    user_id = token_data.get("sub")
-    user = db.get(User, int(user_id)) if user_id else None
+    subject = token_data.get("sub")
+    try:
+        user_id = int(subject) if subject else None
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Invalid refresh token") from exc
+
+    user = db.get(User, user_id) if user_id else None
     if not user:
         raise HTTPException(status_code=401, detail="User no longer exists")
 

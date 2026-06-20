@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     APP_NAME: str = "TaskFlow API"
     API_V1_PREFIX: str = "/api/v1"
-    DATABASE_URL: str = "sqlite:///./data/taskflow.db"
+    DATABASE_URL: str = "postgresql+psycopg://taskflow:taskflow@localhost:5432/taskflow"
     SECRET_KEY: str = "change-this-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15

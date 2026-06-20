@@ -1,224 +1,297 @@
 # TaskFlow FastAPI Backend
 
-TaskFlow is a learning-focused FastAPI backend designed for a Flutter application that uses:
+TaskFlow is a FastAPI backend for a Flutter task-management app. It provides JWT authentication, refresh tokens, user-specific task CRUD endpoints, PostgreSQL storage, Docker deployment, Swagger docs, and basic tests.
 
-- Clean Architecture
-- BLoC
-- Drift
-- Retrofit
-- JWT authentication
-- Refresh tokens
-- Secure token storage
-- Offline data synchronization
-- Media upload and caching
-- Docker deployment
+This README is written for someone who wants to clone the project and host it on a Webmin or Virtualmin server.
 
-This backend provides user authentication, refresh-token support, protected task CRUD endpoints, SQLite storage, Docker support, Swagger documentation, and a basic automated test.
+## Features
 
----
-
-# Features
-
-- User registration
-- User login
-- JWT access token
-- JWT refresh token
+- User registration and login
+- JWT access tokens and refresh tokens
 - Password hashing
-- Protected API routes
-- User-specific task management
-- Create, read, update, and delete tasks
-- SQLite database
-- SQLAlchemy ORM
-- Environment-based configuration
-- Dockerfile
-- Docker Compose
+- Protected task APIs
+- PostgreSQL with SQLAlchemy
+- Dockerfile and Docker Compose
 - Persistent Docker volumes
 - Swagger and ReDoc documentation
 - Health-check endpoint
-- Basic Pytest test
+- Pytest test setup
 
----
+## Tech Stack
 
-# Project Structure
+- Python 3.12 in Docker
+- FastAPI
+- SQLAlchemy
+- PostgreSQL 16
+- Psycopg 3
+- Docker Compose
+- Apache or Nginx reverse proxy
+- Webmin or Virtualmin for server management
+
+## Project Structure
 
 ```text
 taskflow_fastapi/
 ├── app/
 │   ├── api/
-│   │   ├── routes/
-│   │   │   ├── auth.py
-│   │   │   ├── health.py
-│   │   │   └── tasks.py
-│   │   ├── dependencies.py
-│   │   └── router.py
 │   ├── core/
-│   │   ├── config.py
-│   │   └── security.py
 │   ├── db/
-│   │   └── session.py
 │   ├── models/
-│   │   ├── task.py
-│   │   └── user.py
 │   ├── schemas/
-│   │   ├── auth.py
-│   │   ├── task.py
-│   │   └── user.py
 │   └── main.py
-├── data/
-├── uploads/
 ├── tests/
-│   └── test_health.py
-├── .dockerignore
+├── uploads/
 ├── .env.example
-├── .gitignore
 ├── compose.yaml
 ├── Dockerfile
 ├── requirements.txt
 └── README.md
 ```
 
----
+## API Endpoints
 
-# How the Backend Works
-
-```text
-Flutter Application
-        ↓ HTTPS
-University domain or subdomain
-        ↓ Reverse proxy
-Apache or Nginx
-        ↓
-FastAPI Docker container
-        ↓
-SQLite database
-```
-
-The Flutter application will communicate with this backend through Retrofit and Dio.
-
-Example production API base URL:
-
-```text
-https://api-taskflow.example.edu/api/v1
-```
-
----
-
-# API Endpoints
-
-| Method | Endpoint | Authentication | Purpose |
+| Method | Endpoint | Auth | Purpose |
 |---|---|---:|---|
-| GET | `/api/v1/health` | No | Check API health |
-| POST | `/api/v1/auth/register` | No | Register a user |
+| GET | `/api/v1/health` | No | Health check |
+| POST | `/api/v1/auth/register` | No | Register user |
 | POST | `/api/v1/auth/login` | No | Login and receive tokens |
-| POST | `/api/v1/auth/refresh` | Refresh token body | Receive new tokens |
-| GET | `/api/v1/tasks` | Access token | Get the current user's tasks |
-| POST | `/api/v1/tasks` | Access token | Create a task |
+| POST | `/api/v1/auth/refresh` | Refresh token | Receive new tokens |
+| GET | `/api/v1/tasks` | Access token | List current user's tasks |
+| POST | `/api/v1/tasks` | Access token | Create task |
 | GET | `/api/v1/tasks/{id}` | Access token | Get one task |
-| PATCH | `/api/v1/tasks/{id}` | Access token | Update one task |
-| DELETE | `/api/v1/tasks/{id}` | Access token | Delete one task |
+| PATCH | `/api/v1/tasks/{id}` | Access token | Update task |
+| DELETE | `/api/v1/tasks/{id}` | Access token | Delete task |
 
----
+## How to Send API Requests
 
-# Server Requirements
+Use the local server URL while testing on the server:
 
-The university server should provide:
+```bash
+BASE_URL=http://127.0.0.1:8000/api/v1
+```
+
+Use the public HTTPS URL after deployment:
+
+```bash
+BASE_URL=https://api-taskflow.example.com/api/v1
+```
+
+### Health Check
+
+```bash
+curl "$BASE_URL/health"
+```
+
+Expected response:
+
+```json
+{"status":"healthy"}
+```
+
+### Register a User
+
+```bash
+curl -X POST "$BASE_URL/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test User",
+    "email": "test@example.com",
+    "password": "password123"
+  }'
+```
+
+### Login
+
+```bash
+curl -X POST "$BASE_URL/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "password123"
+  }'
+```
+
+Example response:
+
+```json
+{
+  "access_token": "ACCESS_TOKEN_HERE",
+  "refresh_token": "REFRESH_TOKEN_HERE",
+  "token_type": "bearer"
+}
+```
+
+Save the access token for protected requests:
+
+```bash
+ACCESS_TOKEN=ACCESS_TOKEN_HERE
+```
+
+### Create a Task
+
+```bash
+curl -X POST "$BASE_URL/tasks" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{
+    "title": "Learn FastAPI",
+    "description": "Practice authentication and CRUD",
+    "priority": "high",
+    "is_completed": false,
+    "due_date": "2026-06-25T18:00:00Z"
+  }'
+```
+
+### List Tasks
+
+```bash
+curl "$BASE_URL/tasks" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+### Get One Task
+
+Replace `1` with the task ID:
+
+```bash
+curl "$BASE_URL/tasks/1" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+### Update a Task
+
+Use `PATCH` to send only the fields you want to change:
+
+```bash
+curl -X PATCH "$BASE_URL/tasks/1" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{
+    "title": "Learn FastAPI and PostgreSQL",
+    "is_completed": true
+  }'
+```
+
+### Delete a Task
+
+```bash
+curl -X DELETE "$BASE_URL/tasks/1" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+Successful delete returns HTTP `204 No Content`.
+
+### Refresh Tokens
+
+```bash
+curl -X POST "$BASE_URL/auth/refresh" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "REFRESH_TOKEN_HERE"
+  }'
+```
+
+## Deployment Overview
+
+Production traffic should flow like this:
+
+```text
+Flutter app or browser
+        |
+        | HTTPS
+        v
+api.your-domain.com
+        |
+        | Apache/Nginx reverse proxy
+        v
+127.0.0.1:8000
+        |
+        v
+FastAPI Docker container
+        |
+        v
+PostgreSQL Docker container
+```
+
+The API container is bound to `127.0.0.1:8000`, so it is reachable only from the server itself. Apache or Nginx handles the public HTTPS traffic.
+
+## Server Requirements
+
+Your Webmin/Virtualmin server needs:
 
 - SSH access
 - `sudo` or root access
-- Docker installation permission
-- Docker Compose
-- A domain or subdomain
+- Git
+- Docker
+- Docker Compose v2
 - Apache or Nginx
-- Firewall and DNS configuration access
-- SSL certificate support
+- A domain or subdomain
+- Ports `80` and `443` open
+- SSL certificate support, usually Let's Encrypt
 
-Before deployment, connect to the server and check:
+Check the server:
 
 ```bash
 cat /etc/os-release
+git --version
 docker --version
 docker compose version
 ```
 
-If Docker is missing, the correct installation process depends on the server's Linux distribution.
+## 1. Create a Domain or Subdomain
 
----
+Use a subdomain for the API, for example:
 
-# Upload the Project to the Server
-
-## Option 1: Upload with SCP
-
-From your local Arch Linux computer:
-
-```bash
-scp -r ~/Downloads/taskflow_fastapi username@SERVER_IP:/home/username/
+```text
+api-taskflow.example.com
 ```
 
-Example:
+Create a DNS `A` record:
 
-```bash
-scp -r ~/Downloads/taskflow_fastapi azrul@103.x.x.x:/home/azrul/
+```text
+api-taskflow.example.com -> YOUR_SERVER_PUBLIC_IP
 ```
 
-Then connect to the server:
+In Virtualmin, you can create a virtual server:
 
-```bash
-ssh username@SERVER_IP
+```text
+Virtualmin -> Create Virtual Server
 ```
 
-Go to the project directory:
+Or create a sub-server/subdomain under an existing site. DNS can take a few minutes to several hours to propagate.
+
+## 2. Clone the Project on the Server
+
+SSH into the server:
 
 ```bash
-cd /home/username/taskflow_fastapi
+ssh username@YOUR_SERVER_IP
 ```
 
-## Option 2: Upload the ZIP file
-
-From your local computer:
-
-```bash
-scp taskflow_fastapi_docker.zip username@SERVER_IP:/home/username/
-```
-
-Connect to the server:
-
-```bash
-ssh username@SERVER_IP
-```
-
-Extract the file:
+Choose a deployment location. These are common choices:
 
 ```bash
 cd /home/username
-unzip taskflow_fastapi_docker.zip
+```
+
+Clone the repository:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/taskflow_fastapi.git
 cd taskflow_fastapi
 ```
 
-## Option 3: Upload using Webmin
+If your repository is private, make sure the server has access through an SSH key or GitHub token.
 
-Use:
+## 3. Create the Environment File
 
-```text
-Webmin
-→ Tools
-→ File Manager
-→ /home/username/
-→ Upload
-```
-
-Upload the ZIP file, extract it, and open the project folder.
-
----
-
-# Create the Production Environment File
-
-Inside the project directory:
+Copy the example file:
 
 ```bash
 cp .env.example .env
 ```
 
-Generate a strong secret key:
+Generate a secure secret key:
 
 ```bash
 openssl rand -hex 64
@@ -230,22 +303,32 @@ Edit the environment file:
 nano .env
 ```
 
-Example production configuration:
+Example production `.env`:
 
 ```env
 APP_NAME=TaskFlow API
 API_V1_PREFIX=/api/v1
 
-DATABASE_URL=sqlite:///./data/taskflow.db
+POSTGRES_DB=taskflow
+POSTGRES_USER=taskflow
+POSTGRES_PASSWORD=replace_with_a_strong_database_password
+DATABASE_URL=postgresql+psycopg://taskflow:replace_with_a_strong_database_password@db:5432/taskflow
 
-SECRET_KEY=replace_this_with_the_generated_secret_key
+SECRET_KEY=replace_with_the_generated_secret_key
 ALGORITHM=HS256
 
 ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
-CORS_ORIGINS=["https://api-taskflow.example.edu"]
+CORS_ORIGINS=["https://api-taskflow.example.com"]
 ```
+
+Important:
+
+- `POSTGRES_PASSWORD` must match the password inside `DATABASE_URL`.
+- In Docker Compose, the database hostname must be `db`.
+- Do not commit `.env` to Git.
+- Replace `api-taskflow.example.com` with your real API domain.
 
 Save in Nano:
 
@@ -255,67 +338,68 @@ Enter
 Ctrl + X
 ```
 
-Never upload the real `.env` file to a public Git repository.
+## 4. Review Docker Compose
 
----
+The included [compose.yaml](compose.yaml) starts two services:
 
-# Production Docker Compose Configuration
+- `db`: PostgreSQL
+- `api`: FastAPI
 
-For production deployment behind Apache or Nginx, bind FastAPI only to the server's local interface.
-
-Use this `compose.yaml` configuration:
+The important production setting is:
 
 ```yaml
-services:
-  api:
-    build:
-      context: .
-    container_name: taskflow_api
-    env_file:
-      - .env
-    ports:
-      - "127.0.0.1:8000:8000"
-    volumes:
-      - taskflow_data:/app/data
-      - taskflow_uploads:/app/uploads
-    restart: unless-stopped
-
-volumes:
-  taskflow_data:
-  taskflow_uploads:
+ports:
+  - "127.0.0.1:8000:8000"
 ```
 
-This prevents port `8000` from being directly exposed to the public internet.
+This keeps FastAPI private to the server. Your public domain should reach it through Apache or Nginx.
 
-Apache or Nginx will forward HTTPS requests to:
+PostgreSQL data is stored in:
 
 ```text
-http://127.0.0.1:8000
+postgres_data
 ```
 
----
+Uploaded files are stored in:
 
-# Build and Run on the University Server
+```text
+taskflow_uploads
+```
 
-Inside the project directory:
+## 5. Build and Start the App
+
+Run:
 
 ```bash
 docker compose up --build -d
 ```
 
-Check running containers:
+Check containers:
 
 ```bash
 docker compose ps
 ```
 
-View API logs:
+You should see both services running:
+
+```text
+taskflow_db
+taskflow_api
+```
+
+Check API logs:
 
 ```bash
 docker compose logs -f api
 ```
 
-Test the API from the server:
+Check PostgreSQL:
+
+```bash
+docker compose exec db sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Test the API on the server:
 
 ```bash
 curl http://127.0.0.1:8000/api/v1/health
@@ -327,122 +411,44 @@ Expected response:
 {"status":"healthy"}
 ```
 
-Stop viewing logs with:
+## 6. Configure Webmin or Virtualmin Reverse Proxy
 
-```text
-Ctrl + C
-```
+Use this step to connect your public domain to the private FastAPI port.
 
-The container will continue running in the background.
+### Apache / Virtualmin
 
----
-
-# Container Management Commands
-
-Start the existing container:
+Enable required Apache modules on Debian or Ubuntu:
 
 ```bash
-docker compose up -d
+sudo a2enmod proxy proxy_http headers ssl
+sudo systemctl restart apache2
 ```
 
-Stop and remove the container:
+In Virtualmin, open the virtual server for your API domain and edit the Apache virtual host, or add a custom proxy configuration.
 
-```bash
-docker compose down
-```
-
-Restart the container:
-
-```bash
-docker compose restart
-```
-
-View container status:
-
-```bash
-docker compose ps
-```
-
-View logs:
-
-```bash
-docker compose logs -f api
-```
-
-Rebuild after a source-code change:
-
-```bash
-docker compose down
-docker compose up --build -d
-```
-
-Delete the container and database volumes:
-
-```bash
-docker compose down -v
-```
-
-Warning: `docker compose down -v` deletes the stored SQLite database and uploaded files kept in Docker volumes.
-
----
-
-# Domain or Subdomain Setup
-
-A recommended subdomain is:
-
-```text
-api-taskflow.example.edu
-```
-
-The DNS administrator must create an A record:
-
-```text
-api-taskflow.example.edu
-A record → UNIVERSITY_SERVER_PUBLIC_IP
-```
-
-If Virtualmin is available:
-
-```text
-Virtualmin
-→ Create Virtual Server
-```
-
-Or create a subdomain under an existing virtual server.
-
-DNS changes may take time to propagate.
-
----
-
-# Apache Reverse Proxy Setup
-
-Use this section if the server uses Apache.
-
-Example virtual-host configuration:
+HTTP virtual host example:
 
 ```apache
 <VirtualHost *:80>
-    ServerName api-taskflow.example.edu
+    ServerName api-taskflow.example.com
 
     ProxyPreserveHost On
-
     ProxyPass / http://127.0.0.1:8000/
     ProxyPassReverse / http://127.0.0.1:8000/
 </VirtualHost>
 ```
 
-For HTTPS:
+HTTPS virtual host example:
 
 ```apache
 <VirtualHost *:443>
-    ServerName api-taskflow.example.edu
+    ServerName api-taskflow.example.com
 
     SSLEngine on
     SSLCertificateFile /path/to/fullchain.pem
     SSLCertificateKeyFile /path/to/privkey.pem
 
     ProxyPreserveHost On
-
     RequestHeader set X-Forwarded-Proto "https"
 
     ProxyPass / http://127.0.0.1:8000/
@@ -450,46 +456,30 @@ For HTTPS:
 </VirtualHost>
 ```
 
-On Debian or Ubuntu, enable required modules:
-
-```bash
-sudo a2enmod proxy
-sudo a2enmod proxy_http
-sudo a2enmod headers
-sudo a2enmod ssl
-sudo systemctl restart apache2
-```
-
-Check Apache configuration:
+Check and reload Apache:
 
 ```bash
 sudo apachectl configtest
+sudo systemctl reload apache2
 ```
 
-On AlmaLinux, Rocky Linux, or CentOS, Apache is often named `httpd`:
+On AlmaLinux, Rocky Linux, or CentOS, Apache may be named `httpd`:
 
 ```bash
-sudo systemctl restart httpd
+sudo systemctl reload httpd
 ```
 
-The configuration location may differ depending on the operating system and Virtualmin setup.
+### Nginx
 
----
-
-# Nginx Reverse Proxy Setup
-
-Use this section if the server uses Nginx.
-
-Example configuration:
+If the server uses Nginx instead of Apache:
 
 ```nginx
 server {
     listen 80;
-    server_name api-taskflow.example.edu;
+    server_name api-taskflow.example.com;
 
     location / {
         proxy_pass http://127.0.0.1:8000;
-
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -498,97 +488,46 @@ server {
 }
 ```
 
-For HTTPS:
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name api-taskflow.example.edu;
-
-    ssl_certificate /path/to/fullchain.pem;
-    ssl_certificate_key /path/to/privkey.pem;
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-    }
-}
-```
-
-Check the configuration:
+Check and reload Nginx:
 
 ```bash
 sudo nginx -t
-```
-
-Reload Nginx:
-
-```bash
 sudo systemctl reload nginx
 ```
 
----
+## 7. Enable HTTPS
 
-# Enable HTTPS
-
-The authentication API must use HTTPS in production.
-
-If Virtualmin is available:
+In Virtualmin:
 
 ```text
-Virtualmin
-→ Server Configuration
-→ SSL Certificate
-→ Let's Encrypt
+Virtualmin -> Select API domain -> Server Configuration -> SSL Certificate -> Let's Encrypt
 ```
 
-Before requesting the certificate:
+Before requesting SSL, confirm:
 
-1. The DNS record must point to the server.
-2. Port `80` must be reachable.
-3. The domain must resolve correctly.
-4. Apache or Nginx must recognize the domain.
+- DNS points to the server.
+- Port `80` is open.
+- Apache or Nginx is running.
+- The API domain has a virtual server or proxy config.
 
-After SSL is enabled, the API should be available at:
+After SSL is enabled, test:
 
 ```text
-https://api-taskflow.example.edu
+https://api-taskflow.example.com/api/v1/health
+https://api-taskflow.example.com/docs
+https://api-taskflow.example.com/redoc
 ```
 
-Swagger:
+## 8. Firewall
+
+Public ports:
 
 ```text
-https://api-taskflow.example.edu/docs
+80/tcp
+443/tcp
 ```
 
-ReDoc:
-
-```text
-https://api-taskflow.example.edu/redoc
-```
-
-Health endpoint:
-
-```text
-https://api-taskflow.example.edu/api/v1/health
-```
-
----
-
-# Firewall Configuration
-
-Only expose standard web ports publicly:
-
-```text
-80  → HTTP
-443 → HTTPS
-```
-
-Do not expose Docker port `8000` publicly when a reverse proxy is used.
+Do not expose port `8000` publicly.
 
 For UFW:
 
@@ -606,264 +545,171 @@ sudo firewall-cmd --permanent --add-service=https
 sudo firewall-cmd --reload
 ```
 
----
-
-# Docker Auto-Start After Server Reboot
-
-The Compose configuration contains:
-
-```yaml
-restart: unless-stopped
-```
-
-Enable the Docker service:
-
-```bash
-sudo systemctl enable docker
-sudo systemctl start docker
-```
-
-After a server restart, Docker should automatically restart the TaskFlow container.
-
-Verify after reboot:
-
-```bash
-docker compose ps
-```
-
----
-
-# Test the API with Swagger
+## 9. Test with Swagger
 
 Open:
 
 ```text
-https://api-taskflow.example.edu/docs
+https://api-taskflow.example.com/docs
 ```
 
-## 1. Register a User
-
-Endpoint:
-
-```text
-POST /api/v1/auth/register
-```
-
-Request body:
+Register:
 
 ```json
 {
-  "name": "Azrul Amaline",
-  "email": "azrul@example.com",
+  "name": "Test User",
+  "email": "test@example.com",
   "password": "password123"
 }
 ```
 
-## 2. Login
+Login with the same email and password. Copy the `access_token`, click **Authorize**, and paste the token value.
 
-Endpoint:
+For normal HTTP clients, send:
 
 ```text
-POST /api/v1/auth/login
+Authorization: Bearer YOUR_ACCESS_TOKEN
 ```
 
-Request body:
-
-```json
-{
-  "email": "azrul@example.com",
-  "password": "password123"
-}
-```
-
-Example response:
-
-```json
-{
-  "access_token": "your-access-token",
-  "refresh_token": "your-refresh-token",
-  "token_type": "bearer"
-}
-```
-
-## 3. Authorize Swagger
-
-1. Copy the `access_token`.
-2. Press the **Authorize** button.
-3. Paste the access token.
-4. Submit the authorization form.
-5. Call protected task endpoints.
-
-## 4. Create a Task
-
-Endpoint:
+Then test:
 
 ```text
 POST /api/v1/tasks
+GET /api/v1/tasks
 ```
 
-Request body:
+## 10. Connect Flutter
 
-```json
-{
-  "title": "Learn FastAPI",
-  "description": "Complete authentication and CRUD",
-  "priority": "high",
-  "is_completed": false,
-  "due_date": "2026-06-25T18:00:00Z"
-}
-```
-
-## 5. Refresh Tokens
-
-Endpoint:
-
-```text
-POST /api/v1/auth/refresh
-```
-
-Request body:
-
-```json
-{
-  "refresh_token": "your-refresh-token"
-}
-```
-
----
-
-# Connect the Flutter Application
-
-The Flutter application should use the production HTTPS base URL.
+Set the production API base URL:
 
 ```dart
 class ApiConstants {
   static const String baseUrl =
-      'https://api-taskflow.example.edu/api/v1';
+      'https://api-taskflow.example.com/api/v1';
 }
 ```
 
-Dio configuration:
-
-```dart
-final dio = Dio(
-  BaseOptions(
-    baseUrl: ApiConstants.baseUrl,
-    connectTimeout: const Duration(seconds: 20),
-    receiveTimeout: const Duration(seconds: 20),
-  ),
-);
-```
-
-Retrofit example:
-
-```dart
-@RestApi()
-abstract class ApiService {
-  factory ApiService(Dio dio, {String? baseUrl}) = _ApiService;
-}
-```
-
-The access token should be added through a Dio interceptor:
+Send protected requests with:
 
 ```text
 Authorization: Bearer ACCESS_TOKEN
 ```
 
-The Flutter app should store access and refresh tokens with `flutter_secure_storage`.
+Store tokens securely in the Flutter app, for example with `flutter_secure_storage`.
 
----
+## Update an Existing Deployment
 
-# Update the Deployed Backend
-
-Upload the changed code or pull the changes from Git:
+SSH into the server:
 
 ```bash
+ssh username@YOUR_SERVER_IP
 cd /home/username/taskflow_fastapi
 ```
 
-If Git is used:
+Pull the latest code:
 
 ```bash
 git pull
 ```
 
-Rebuild:
+Rebuild and restart:
 
 ```bash
 docker compose down
 docker compose up --build -d
 ```
 
-Check logs:
-
-```bash
-docker compose logs -f api
-```
-
-Test health:
+Check health:
 
 ```bash
 curl http://127.0.0.1:8000/api/v1/health
 ```
 
----
+## Useful Docker Commands
 
-# Database and Backup
-
-The current learning project uses SQLite.
-
-The database is stored in a Docker volume:
-
-```text
-taskflow_data
+```bash
+docker compose ps
+docker compose logs -f api
+docker compose logs -f db
+docker compose restart
+docker compose down
+docker compose up -d
 ```
 
-Uploaded files are stored in:
+Open PostgreSQL shell:
 
-```text
-taskflow_uploads
+```bash
+docker compose exec db sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
 
-Inspect Docker volumes:
+Exit PostgreSQL shell:
+
+```text
+\q
+```
+
+Delete all containers and volumes:
+
+```bash
+docker compose down -v
+```
+
+Warning: `docker compose down -v` deletes the PostgreSQL database volume and uploaded-file volume.
+
+## Backup
+
+Create a PostgreSQL backup:
+
+```bash
+mkdir -p backups
+docker compose exec -T db sh -lc 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > backups/taskflow_$(date +%F).sql
+```
+
+Restore a backup:
+
+```bash
+docker compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"' < backups/taskflow_YYYY-MM-DD.sql
+```
+
+Inspect volumes:
 
 ```bash
 docker volume ls
+docker volume inspect taskflow_fastapi_postgres_data
 ```
 
-For a basic backup, first inspect the volume location:
+## Run Tests
+
+Inside Docker:
 
 ```bash
-docker volume inspect taskflow_fastapi_taskflow_data
+docker compose exec api pytest
 ```
 
-A safer production backup process should be created before real users are added.
+Locally:
 
-For a small learning project, SQLite is acceptable. For multiple concurrent users or a production team application, migrate to PostgreSQL.
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pytest
+```
 
----
+Use Python 3.12 or 3.13 for local testing with the pinned dependencies. The Docker image uses Python 3.12.
 
-# Important Production Notes
+## Troubleshooting
 
-- Always use HTTPS.
-- Never publish the `.env` file.
-- Use a long random `SECRET_KEY`.
-- Do not expose port `8000` publicly when using Apache or Nginx.
-- Back up the database before updates.
-- Do not run `docker compose down -v` unless data deletion is intended.
-- Replace SQLite with PostgreSQL before serious production use.
-- Add Alembic migrations before changing the production database schema.
-- Add refresh-token revocation for stronger logout security.
-- Add rate limiting before exposing authentication publicly.
-- Restrict CORS to trusted domains.
-- Keep Docker and the server operating system updated.
-- Review university hosting and security policies before deployment.
+### Docker permission denied
 
----
+Add the user to the Docker group:
 
-# Troubleshooting
+```bash
+sudo usermod -aG docker $USER
+```
 
-## Container does not start
+Log out and log in again.
+
+### API container does not start
 
 Check:
 
@@ -872,7 +718,18 @@ docker compose ps
 docker compose logs api
 ```
 
-## Port 8000 is already in use
+### Database is not ready
+
+Check:
+
+```bash
+docker compose logs db
+docker compose exec db sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Make sure `POSTGRES_PASSWORD` and `DATABASE_URL` use the same password.
+
+### Port 8000 is already in use
 
 Check:
 
@@ -880,64 +737,22 @@ Check:
 sudo ss -lntp | grep 8000
 ```
 
-Change the host-side port if necessary:
+Change the host port in `compose.yaml`:
 
 ```yaml
 ports:
   - "127.0.0.1:8001:8000"
 ```
 
-Then update the reverse proxy:
+Then update the reverse proxy to:
 
 ```text
 http://127.0.0.1:8001
 ```
 
-## Permission denied when using Docker
+### Public domain returns 502
 
-Check whether the user belongs to the Docker group:
-
-```bash
-groups
-```
-
-Add the user:
-
-```bash
-sudo usermod -aG docker $USER
-```
-
-Log out and log back in.
-
-## Domain does not open
-
-Check DNS:
-
-```bash
-nslookup api-taskflow.example.edu
-```
-
-Or:
-
-```bash
-dig api-taskflow.example.edu
-```
-
-Check web server:
-
-```bash
-sudo systemctl status apache2
-```
-
-Or:
-
-```bash
-sudo systemctl status nginx
-```
-
-## Reverse proxy returns 502
-
-Check whether FastAPI is running:
+Check FastAPI locally:
 
 ```bash
 curl http://127.0.0.1:8000/api/v1/health
@@ -945,76 +760,42 @@ docker compose ps
 docker compose logs api
 ```
 
-## SSL certificate fails
+Then check Apache or Nginx logs.
 
-Verify:
+### SSL certificate fails
 
-- The domain points to the correct server IP.
-- Port `80` is open.
+Confirm:
+
+- DNS points to the correct server IP.
+- Port `80` is reachable.
 - Apache or Nginx is running.
-- The domain is correctly configured.
-- No conflicting virtual host exists.
+- No duplicate virtual host is using the same domain.
 
----
+## Production Notes
 
-# Run Tests
+- Always use HTTPS.
+- Keep `.env` private.
+- Use strong passwords and a strong `SECRET_KEY`.
+- Keep Docker and the server OS updated.
+- Back up the database before updates.
+- Do not run `docker compose down -v` unless data deletion is intended.
+- Add Alembic before changing production database schemas.
+- Add refresh-token revocation and rate limiting before serious public use.
 
-Inside the container:
-
-```bash
-docker compose exec api pytest
-```
-
-Or without Docker:
-
-```bash
-pytest
-```
-
----
-
-# Current Limitation
-
-The starter project calls:
-
-```python
-Base.metadata.create_all(bind=engine)
-```
-
-This makes the initial setup easy, but database schema updates should later be handled with Alembic migrations.
-
-Recommended next backend improvements:
-
-1. Add Alembic.
-2. Add PostgreSQL.
-3. Add media-upload endpoints.
-4. Add refresh-token revocation.
-5. Add logout endpoint.
-6. Add categories and task relationships.
-7. Add pagination and filtering.
-8. Add integration tests.
-9. Add production logging.
-10. Add automated deployment.
-
----
-
-# Quick Deployment Checklist
+## Deployment Checklist
 
 ```text
-[ ] Server SSH access confirmed
-[ ] Docker installed
-[ ] Docker Compose installed
-[ ] Project uploaded
-[ ] .env created
+[ ] Domain or subdomain points to the server
+[ ] Git repository cloned on the server
+[ ] .env created and edited
 [ ] SECRET_KEY generated
-[ ] compose.yaml bound to 127.0.0.1
-[ ] Container built and started
-[ ] Health endpoint tested locally
-[ ] Domain DNS configured
+[ ] PostgreSQL password set in POSTGRES_PASSWORD and DATABASE_URL
+[ ] Docker Compose app starts successfully
+[ ] Local health endpoint works on 127.0.0.1:8000
 [ ] Apache or Nginx reverse proxy configured
 [ ] HTTPS certificate installed
-[ ] Public health endpoint tested
-[ ] Swagger tested
+[ ] Public health endpoint works
+[ ] Swagger opens
 [ ] Flutter base URL updated
-[ ] Database backup plan prepared
+[ ] Backup command tested
 ```
